@@ -1,4 +1,6 @@
 <!-- Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/ -->
+More docs and resources than I have gone into can be found here. https://learn.microsoft.com/en-us/azure/architecture/microservices/design/patterns
+
 # Orbit, event driven microservices on Kubernetes
 
 A small, complete, runnable system that shows how to build an event driven microservice platform and deploy it with Kubernetes and GitOps.
