@@ -1,0 +1,11 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# PAT for Image Updater git write back, see docs/08-cicd-and-image-updater.md. Do not commit the filled copy.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-creds
+  namespace: argocd
+type: Opaque
+stringData:
+  username: your-github-username
+  password: ghp_replace_with_your_personal_access_token

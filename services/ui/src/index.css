@@ -1,0 +1,22 @@
+/* Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/ */
+:root { font-family: ui-sans-serif, system-ui, sans-serif; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #0b1020; color: #e6e9f0; }
+.wrap { max-width: 720px; margin: 6vh auto; padding: 0 20px; }
+h1 { letter-spacing: -0.02em; }
+.card { background: #151b34; border: 1px solid #232b4d; border-radius: 14px; padding: 22px; margin: 16px 0; }
+input, button { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #2c3766; background: #0e1430; color: #e6e9f0; }
+button { background: #3b82f6; border-color: #3b82f6; cursor: pointer; font-weight: 600; }
+button:hover { background: #2f6fe0; }
+button:disabled { opacity: 0.5; cursor: default; }
+label { display: block; margin: 8px 0 4px; font-size: 13px; color: #9aa6d0; }
+.row { display: flex; gap: 10px; align-items: end; }
+.between { display: flex; justify-content: space-between; align-items: center; }
+.log { font-family: ui-monospace, monospace; font-size: 13px; background: #0a0f24; border-radius: 10px; padding: 12px; min-height: 140px; }
+.line { padding: 2px 0; border-bottom: 1px solid #141a33; }
+.muted { color: #7c87b5; font-size: 13px; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; margin-right: 6px; }
+.pending { background: #3b3450; color: #e9d8a6; }
+.done { background: #14361f; color: #86efac; }
+.err { background: #3a1620; color: #fca5a5; }
+a { color: #9ab; }

@@ -1,0 +1,64 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit End to End Happy Path
+
+' The whole story in one picture. You authenticate with a Redis session, submit a job
+' straight to the gateway, and receive the result via CDC. This combines diagrams
+' 03, 04 and 05. Read the focused ones first.
+
+actor Browser
+participant "nginx\n(TLS edge)" as nginx
+participant "auth\n(auth only)" as auth
+database "Redis" as redis
+participant "node-gateway" as gw
+database "Postgres" as pg
+queue "job.requests" as reqs
+participant "python-worker" as worker
+participant "Debezium" as dbz
+queue "orbit.public.jobs" as cdc
+
+== Login over HTTPS where http://localhost :80 -> 301 -> :443 ==
+Browser -> nginx : POST https://localhost/api/login (admin/admin)
+nginx -> auth : forward
+auth -> redis : SET session:<uuid> (TTL)
+auth --> Browser : Set-Cookie orbit_token = opaque id\n(HttpOnly, Secure)
+Browser -> nginx : GET /api/jobs (history)
+nginx -> auth : auth_request -> Redis lookup -> 200 + X-Auth-User
+nginx -> gw : proxy GET /jobs (+ X-Auth-User)
+gw -> pg : SELECT jobs WHERE owner = user
+gw --> Browser : prior job history (may be empty)
+
+== Submit a job where the command bypasses the auth service ==
+Browser -> nginx : POST /api/jobs (+ cookie)
+nginx -> auth : auth_request /internal/verify
+auth -> redis : GET + EXPIRE session (refresh TTL)
+auth --> nginx : 200 + X-Auth-User
+nginx -> gw : proxy POST /jobs (+ X-Auth-User)
+gw -> pg : INSERT 'queued' row (owner)
+gw -> reqs : produce { jobId, payload, owner }
+gw --> Browser : 202 { jobId, status: "queued" }
+Browser -> nginx : open WebSocket /ws (subscribe jobId)
+nginx -> gw : proxy /ws (after auth_request)
+
+== Work and completion via CDC ==
+reqs -> worker : consume
+worker -> worker : ~3s, reverse payload
+worker -> pg : UPDATE row -> status='completed'
+pg -> dbz : WAL change
+dbz -> cdc : produce CDC event
+cdc -> gw : consume
+gw -> Browser : WebSocket "job-update" -> result shown
+
+note over worker, dbz : The worker flips the row. CDC makes it the event the UI hears.
+
+== Later you log out, log back in, and see it anyway ==
+Browser -> nginx : POST /api/logout
+nginx -> auth : forward
+auth -> redis : DEL session:<uuid> (instant revoke)
+... time passes ...
+Browser -> nginx : log in again -> GET /api/jobs
+nginx -> gw : proxy GET /jobs (+ X-Auth-User)
+gw -> pg : SELECT by owner
+gw --> Browser : durable history incl. the finished job
+
+@enduml

@@ -1,0 +1,6 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Normalize line endings. Shell scripts must stay LF so they run in Linux
+# containers, even when edited on Windows.
+* text=auto
+
+*.sh text eol=lf

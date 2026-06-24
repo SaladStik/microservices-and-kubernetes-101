@@ -1,0 +1,31 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit One Job Life Through the Event Queue
+
+' The event queue explainer. Follow a single job from click to done and
+' learn the Kafka words along the way. Producer, consumer, topic,
+' partition, consumer group, offsets, at least once delivery.
+
+[*] --> Accepted : UI POST /api/jobs, gateway writes the row
+note right of Accepted : In the database, not on the queue yet. If the publish fails it stays here.
+
+Accepted --> Queued : gateway PRODUCES to job.requests, then marks it queued
+note right of Queued : The gateway is the producer. The topic is an ordered durable log. The producer does not block.
+
+Queued --> Processing : python-worker CONSUMES\nthe event
+note right of Processing : In a consumer group each member gets one partition, so workers scale out.
+
+Processing --> Completed : worker UPDATEs the row\nstatus 'queued' -> 'completed'
+note right of Completed : Commit the offset after the work. A crash means redelivery, so deliver at least once. Be idempotent.
+
+Completed --> Captured : Debezium PRODUCES CDC event\nto orbit.public.jobs
+note right of Captured : Debezium is a second producer with the same queue mechanics.
+
+Captured --> Delivered : node-gateway CONSUMES CDC\nand pushes over WebSocket
+Delivered --> [*] : UI shows the result
+
+note left of Queued : A queue here is an append only log. Events are not deleted on read.
+
+note bottom : The history is durable. Each state is a Postgres row by owner. On a later\nlogin the UI reads it back, so jobs that finished while you were away still show.
+
+@enduml

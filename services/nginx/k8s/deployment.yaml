@@ -1,0 +1,46 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: orbit
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  # zero downtime rollout. start the new pod, wait for it healthy, then kill the old
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: orbit-nginx # kustomization overrides this to ghcr.io/<owner>/orbit-nginx
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            # TLS cert and key from the nginx-tls Secret, see make tls-secret
+            - name: tls
+              mountPath: /etc/nginx/certs
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 443
+              scheme: HTTPS
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: tls
+          secret:
+            secretName: nginx-tls

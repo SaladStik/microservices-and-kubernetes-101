@@ -1,0 +1,237 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Full local stack, no Kubernetes. Only nginx publishes a port.
+
+name: orbit
+
+networks:
+  orbit:
+    driver: bridge
+
+volumes:
+  pgdata:
+
+services:
+  # makes a self signed cert in Docker, so no host openssl is needed on any OS
+  certgen:
+    image: alpine/openssl:latest
+    volumes:
+      - ./services/nginx/certs:/certs
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        if [ ! -f /certs/tls.crt ]; then
+          openssl req -x509 -nodes -newkey rsa:2048 \
+            -keyout /certs/tls.key -out /certs/tls.crt -days 365 \
+            -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+          && echo "generated self signed cert";
+        else echo "cert already exists, skipping"; fi
+    networks: [orbit]
+
+  # Edge
+  nginx:
+    build: ./services/nginx
+    ports:
+      - "80:80"   # redirects to 443
+      - "443:443" # the real edge, HTTPS, the only exposed app surface
+    volumes:
+      # nginx terminates TLS here, cert is created by certgen
+      - ./services/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      certgen:
+        condition: service_completed_successfully
+      ui:
+        condition: service_started
+      auth:
+        condition: service_started
+      node-gateway:
+        condition: service_started
+    networks: [orbit]
+
+  # UI, a static frontend service
+  ui:
+    build: ./services/ui
+    networks: [orbit]
+
+  # Auth service
+  auth:
+    build: ./services/auth
+    # auth authority only, handles login logout me and auth_request verify
+    environment:
+      PORT: "3000"
+      ORBIT_JWT_SECRET: "${ORBIT_JWT_SECRET:-dev-only-change-me}"
+      ORBIT_DEMO_USER: "${ORBIT_DEMO_USER:-admin}"
+      ORBIT_DEMO_PASSWORD: "${ORBIT_DEMO_PASSWORD:-admin}"
+      # behind HTTPS, so the cookie can be Secure
+      ORBIT_COOKIE_SECURE: "true"
+      REDIS_URL: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [orbit]
+
+  # Redis, the server side session store
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [orbit]
+
+  # Event hub
+  node-gateway:
+    build: ./services/node-gateway
+    environment:
+      PORT: "4000"
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      JOB_REQUESTS_TOPIC: "${JOB_REQUESTS_TOPIC:-job.requests}"
+      CDC_TOPIC: "${CDC_TOPIC:-orbit.public.jobs}"
+      # read model, records queued state and reads job history
+      PGHOST: "postgres"
+      PGPORT: "5432"
+      PGUSER: "${POSTGRES_USER:-orbit}"
+      PGPASSWORD: "${POSTGRES_PASSWORD:-orbit}"
+      PGDATABASE: "${POSTGRES_DB:-orbit}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks: [orbit]
+
+  # Worker
+  python-worker:
+    build: ./services/python-worker
+    # on scale down, finish the current job before exiting, do not cut it off
+    stop_grace_period: 30s
+    environment:
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      JOB_REQUESTS_TOPIC: "${JOB_REQUESTS_TOPIC:-job.requests}"
+      DLQ_TOPIC: "${DLQ_TOPIC:-job.requests.dlq}"
+      PGHOST: "postgres"
+      PGPORT: "5432"
+      PGUSER: "${POSTGRES_USER:-orbit}"
+      PGPASSWORD: "${POSTGRES_PASSWORD:-orbit}"
+      PGDATABASE: "${POSTGRES_DB:-orbit}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks: [orbit]
+
+  # Autoscaler. A Compose only stand-in for KEDA. It watches the Kafka backlog and
+  # scales python-worker on the same lag rule. Real Kubernetes does NOT have this
+  # service. KEDA does the job there, see docs/10-autoscaling.md. It mounts the
+  # Docker socket to scale a Compose service, which is fine on a laptop only.
+  autoscaler:
+    image: docker:27-cli
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/work:ro
+    working_dir: /work
+    entrypoint: ["sh", "/work/scripts/autoscale.sh"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks: [orbit]
+
+  # Postgres, with logical replication on for CDC
+  postgres:
+    image: postgres:16
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-orbit}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-orbit}"
+      POSTGRES_DB: "${POSTGRES_DB:-orbit}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orbit} -d ${POSTGRES_DB:-orbit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [orbit]
+
+  # Kafka, a single node KRaft setup for local use
+  kafka:
+    image: apache/kafka:3.8.0
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # 12 partitions so you can scale workers with --scale and see real speedup
+      KAFKA_NUM_PARTITIONS: "12"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+    networks: [orbit]
+
+  # Kafka Connect and Debezium for CDC
+  connect:
+    image: quay.io/debezium/connect:2.7
+    environment:
+      BOOTSTRAP_SERVERS: "kafka:9092"
+      GROUP_ID: "orbit-connect"
+      CONFIG_STORAGE_TOPIC: "connect_configs"
+      OFFSET_STORAGE_TOPIC: "connect_offsets"
+      STATUS_STORAGE_TOPIC: "connect_statuses"
+      CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [orbit]
+
+  # one shot, registers the Debezium connector once Connect is healthy
+  connector-init:
+    image: curlimages/curl:8.8.0
+    depends_on:
+      connect:
+        condition: service_healthy
+    volumes:
+      - ./services/debezium-connect/connector.json:/connector.json:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "Registering Debezium connector...";
+        curl -sf -X PUT -H 'Content-Type: application/json' \
+          --data @/connector.json \
+          http://connect:8083/connectors/orbit-postgres-connector/config \
+        && echo "Connector registered." || (echo "Failed"; exit 1)
+    restart: on-failure
+    networks: [orbit]

@@ -1,0 +1,13 @@
+{
+  "name": "orbit-monorepo",
+  "author": "Nicholas Irvine (https://github.com/SaladStik)",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "description": "Event-driven microservices example monorepo (JS half managed by pnpm)",
+  "scripts": {
+    "dev:ui": "pnpm --filter orbit-ui dev",
+    "build": "pnpm -r --if-present build",
+    "start:auth": "pnpm --filter orbit-auth start",
+    "start:gateway": "pnpm --filter orbit-node-gateway start"
+  }
+}

@@ -1,0 +1,78 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# =============================================================================
+# Build ONLY the microservice(s) that changed, and push to GHCR.
+#
+# How it works:
+#   1. `detect` uses path filters to see which services/<name>/ folders changed
+#      in this push. Its output is a JSON list like ["auth","python-worker"].
+#   2. `build` fans out a matrix over exactly that list - so a one-line change to
+#      the auth service rebuilds the auth service image and nothing else.
+#   3. Each image is tagged with the commit SHA. Argo CD Image Updater watches
+#      the registry for new SHA tags and rolls the matching Deployment.
+#
+# Images: ghcr.io/<owner>/orbit-<service>:<sha>  (+ :latest)
+# =============================================================================
+name: build-changed-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+  pull_request:
+    paths:
+      - "services/**"
+
+jobs:
+  # ---- 1. Which services changed? ----
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Each key is a service (matching its folder + image name). The output
+          # `changes` is a JSON array of the keys whose files changed.
+          filters: |
+            ui: services/ui/**
+            auth: services/auth/**
+            node-gateway: services/node-gateway/**
+            python-worker: services/python-worker/**
+            nginx: services/nginx/**
+            debezium-connect: services/debezium-connect/**
+
+  # ---- 2. Build + push each changed service ----
+  build:
+    needs: detect
+    if: needs.detect.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # needed to push to GHCR
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR requires a lowercase owner; normalize it.
+      - id: vars
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/${{ matrix.service }}
+          push: ${{ github.event_name == 'push' }} # don't push on PRs, just build
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner }}/orbit-${{ matrix.service }}:${{ github.sha }}
+            ghcr.io/${{ steps.vars.outputs.owner }}/orbit-${{ matrix.service }}:latest

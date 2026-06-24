@@ -1,0 +1,60 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-gateway
+  namespace: orbit
+  labels:
+    app: node-gateway
+spec:
+  replicas: 1
+  # zero downtime rollout. start the new pod, wait for it healthy, then kill the old
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: node-gateway
+  template:
+    metadata:
+      labels:
+        app: node-gateway
+    spec:
+      containers:
+        - name: node-gateway
+          image: orbit-node-gateway # kustomization overrides this
+          ports:
+            - containerPort: 4000
+          env:
+            - name: PORT
+              value: "4000"
+            - name: KAFKA_BOOTSTRAP
+              value: "orbit-kafka-kafka-bootstrap:9092"
+            - name: JOB_REQUESTS_TOPIC
+              value: "job.requests"
+            - name: CDC_TOPIC
+              value: "orbit.public.jobs"
+            - name: PGHOST
+              value: "postgres"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: "orbit"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,0 +1,19 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Shared platform resources. Needs the Strimzi operator installed first, see docs/04-kafka-strimzi.md.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - networkpolicy.yaml
+  - postgres/secret.yaml
+  - postgres/init-configmap.yaml
+  - postgres/service.yaml
+  - postgres/statefulset.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml
+  - kafka/kafka-nodepool.yaml
+  - kafka/kafka.yaml
+  - kafka/topics.yaml
+  - connect/kafka-connect.yaml
+  - connect/debezium-connector.yaml

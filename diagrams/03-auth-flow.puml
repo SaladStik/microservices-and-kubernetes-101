@@ -1,0 +1,39 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Delegated Auth
+
+' nginx asks the auth service if this is allowed before it touches the
+' upstream. The cookie is an opaque session id. The real session lives in Redis,
+' so you can revoke it and keep it alive. The protected service never sees a token.
+
+actor Browser
+participant "nginx\n(edge, TLS)" as nginx
+participant "auth\n/internal/verify" as auth
+database "Redis\nsession:<id>" as redis
+participant "upstream\n(auth or node-gateway)" as upstream
+
+Browser -> nginx : GET /api/jobs\n(cookie orbit_token = opaque session id)
+
+nginx -> auth : auth_request subrequest\n(forwards cookie only, no body)
+
+auth -> redis : GET session:<id>
+note right of redis : The cookie is an opaque id. Session data lives here, unlike a JWT.
+
+alt session found
+  redis --> auth : { user, role }
+  auth -> redis : EXPIRE session:<id> (reset TTL)
+  note right of auth : Sliding TTL. Each hit keeps the session alive.
+  auth --> nginx : 200 + X-Auth-User
+  nginx -> upstream : proxy request\n(+ trusted X-Auth-User header)
+  upstream --> nginx : response
+  nginx --> Browser : 200 response
+else missing / expired / logged-out
+  redis --> auth : (nil)
+  auth --> nginx : 401
+  nginx --> Browser : 401 (upstream never touched)
+end
+
+note over redis : Logout does DEL and revokes the session at once. You do not wait for expiry.
+note over upstream : The upstream sees only X-Auth-User, never the cookie.
+
+@enduml

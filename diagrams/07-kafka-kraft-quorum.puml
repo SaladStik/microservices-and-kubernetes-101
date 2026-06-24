@@ -1,0 +1,30 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Kafka Three Node KRaft Quorum
+
+' Why three nodes? A quorum needs a majority to make progress.
+' Three nodes tolerate losing one and still have two left, which is a majority.
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+rectangle "orbit-kafka (Strimzi, KRaft - no ZooKeeper)" {
+  node "node 0\ncontroller + broker" as n0
+  node "node 1\ncontroller + broker" as n1
+  node "node 2\ncontroller + broker" as n2
+
+  n0 <--> n1 : raft metadata
+  n1 <--> n2 : raft metadata
+  n0 <--> n2 : raft metadata
+}
+
+note bottom of n1 : Each node is both a controller that votes in the quorum and a broker that holds data.
+
+note as cfg
+  RF=3 and min.insync.replicas=2. Lose one node,
+  lose no data, and the quorum holds with two of three.
+end note
+
+cfg .. n2
+
+@enduml

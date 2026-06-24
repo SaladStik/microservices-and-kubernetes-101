@@ -1,0 +1,44 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-worker
+  namespace: orbit
+  labels:
+    app: python-worker
+spec:
+  # no replicas here on purpose. KEDA owns the count, see scaledobject.yaml
+  selector:
+    matchLabels:
+      app: python-worker
+  template:
+    metadata:
+      labels:
+        app: python-worker
+    spec:
+      containers:
+        - name: python-worker
+          image: orbit-python-worker # kustomization overrides this
+          env:
+            - name: KAFKA_BOOTSTRAP
+              value: "orbit-kafka-kafka-bootstrap:9092"
+            - name: JOB_REQUESTS_TOPIC
+              value: "job.requests"
+            - name: DLQ_TOPIC
+              value: "job.requests.dlq"
+            - name: PGHOST
+              value: "postgres"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: "orbit"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD

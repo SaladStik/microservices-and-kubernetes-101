@@ -1,0 +1,12 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: orbit
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379

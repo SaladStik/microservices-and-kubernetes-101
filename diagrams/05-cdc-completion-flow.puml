@@ -1,0 +1,29 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit How the UI Finds Out It Is Done
+
+' The worker never tells the UI it finished. It just writes a
+' row. Debezium notices the DB change and emits a second event that ends up
+' back at the browser. Change Data Capture delivers the completion.
+
+queue "job.requests" as reqs
+participant "python-worker" as worker
+database "Postgres\npublic.jobs" as pg
+participant "Debezium\n(Kafka Connect)" as dbz
+queue "orbit.public.jobs\n(CDC topic)" as cdc
+participant "node-gateway" as gw
+actor "Browser" as browser
+
+reqs -> worker : consume { jobId, payload, owner }
+worker -> worker : ~3s work\nreverse(payload)
+worker -> pg : UPDATE existing row\nstatus = 'completed' (keeps owner)
+note right of worker : It flips the queued row to completed and notifies no one.
+
+pg -> dbz : WAL change\n(publication orbit_publication, pgoutput)
+dbz -> cdc : produce CDC envelope\n{ after: {...} }
+cdc -> gw : consume CDC event
+gw -> browser : WebSocket "job-update"\nfor subscribed jobId
+
+note over dbz, cdc : CDC turns a DB write into an event automatically.
+
+@enduml

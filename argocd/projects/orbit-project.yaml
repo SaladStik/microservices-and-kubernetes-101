@@ -1,0 +1,23 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# AppProject security boundary for the demo, limits repos destinations and resources.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: orbit
+  namespace: argocd
+spec:
+  description: Orbit event-driven demo
+  sourceRepos:
+    - "*" # in production pin this to your repo URL
+  destinations:
+    - namespace: orbit
+      server: https://kubernetes.default.svc
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+  # infra app needs a cluster scoped Namespace
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

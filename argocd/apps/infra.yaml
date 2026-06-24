@@ -1,0 +1,23 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Platform infra app. Pinned, no Image Updater.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: orbit-infra
+  namespace: argocd
+spec:
+  project: orbit
+  source:
+    repoURL: https://github.com/your-org/orbit-microservices-k8s.git
+    targetRevision: main
+    path: k8s/infra
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: orbit
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true # Strimzi CRDs have large schemas, so SSA avoids issues

@@ -1,0 +1,29 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Worker Autoscaling with KEDA
+
+' Queue backlog drives the worker count. One more pod per 3 queued, floor 1.
+
+skinparam shadowing false
+
+queue "job.requests\n(backlog = lag)" as topic
+component "KEDA\nreads consumer group lag" as keda
+component "HPA" as hpa
+node "python-worker pods\n1 to 10" as pods
+
+topic --> keda : how many messages are waiting
+keda --> hpa : desired = ceil(lag / 3)
+hpa --> pods : scale up or down
+pods --> topic : consume and commit, lag drops
+
+note bottom of keda
+  floor 1, ceiling 10. scales back to 1
+  about 30 seconds after the backlog clears.
+end note
+
+note bottom of pods
+  one consumer per partition. the topic has 12,
+  so more pods means more parallel work.
+end note
+
+@enduml

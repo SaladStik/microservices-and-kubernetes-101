@@ -1,0 +1,7 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# pnpm workspace definition. Any folder under services/* that has a package.json
+# is treated as a workspace package. The non-JS services (python-worker, nginx,
+# debezium-connect) have no package.json and are simply ignored by pnpm - this is
+# a polyglot monorepo, and pnpm only manages the JavaScript half.
+packages:
+  - "services/*"

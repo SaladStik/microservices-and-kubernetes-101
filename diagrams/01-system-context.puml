@@ -1,0 +1,43 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit System Context
+
+' One box per service. Arrows show who talks to who.
+' See the whole system before you zoom into any single hop.
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Browser" as browser
+
+component "nginx\n(edge proxy, TLS)" as nginx
+component "ui\n(React SPA, public)" as ui
+component "auth\n(auth authority)" as auth
+component "Redis\n(sessions)" as redis
+component "node-gateway\n(event hub + WS)" as gw
+component "python-worker\n(consumer)" as worker
+queue "Kafka\njob.requests / orbit.public.jobs" as kafka
+database "Postgres\n(jobs, owner)" as pg
+component "Debezium\n(Kafka Connect)" as dbz
+
+browser --> nginx : HTTPS + WebSocket\n(:80 -> 301 -> :443)
+nginx --> ui : static SPA (public)
+nginx --> auth : /api/login,logout,me + auth_request
+nginx --> gw : /api/jobs (command), /api/jobs (history), /ws
+
+auth --> redis : session:<id> (create / lookup + refresh TTL / delete)
+
+gw --> pg : INSERT 'queued' (owner) ; SELECT history by owner
+gw --> kafka : produce job.requests
+kafka --> worker : consume job.requests
+worker --> pg : UPDATE row -> 'completed'
+pg --> dbz : WAL (logical replication)
+dbz --> kafka : produce orbit.public.jobs
+kafka --> gw : consume CDC
+gw --> browser : job-update over WS
+
+note bottom of nginx : The only public service and the only TLS endpoint.
+note bottom of gw : Commands skip the auth service. The gateway is also the read model.
+note bottom of kafka : You request work and report it through events.
+
+@enduml

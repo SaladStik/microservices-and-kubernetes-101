@@ -1,0 +1,24 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# KEDA scales the worker on Kafka backlog. One more replica per 3 queued messages.
+# Floor of 1, ceiling of 10. Scales back to 1 once the backlog clears.
+# Needs KEDA installed in the cluster. See docs/10-autoscaling.md
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: python-worker
+  namespace: orbit
+spec:
+  scaleTargetRef:
+    name: python-worker
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  pollingInterval: 5   # check the lag every 5 seconds
+  cooldownPeriod: 30   # wait 30 seconds of no backlog before scaling down
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: orbit-kafka-kafka-bootstrap.orbit.svc:9092
+        consumerGroup: python-worker
+        topic: job.requests
+        lagThreshold: "3"   # desired replicas is the lag divided by 3, rounded up
+        offsetResetPolicy: earliest

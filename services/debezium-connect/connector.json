@@ -1,0 +1,20 @@
+{
+  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+  "tasks.max": "1",
+  "database.hostname": "postgres",
+  "database.port": "5432",
+  "database.user": "orbit",
+  "database.password": "orbit",
+  "database.dbname": "orbit",
+  "topic.prefix": "orbit",
+  "plugin.name": "pgoutput",
+  "publication.name": "orbit_publication",
+  "publication.autocreate.mode": "disabled",
+  "slot.name": "orbit_slot",
+  "table.include.list": "public.jobs",
+  "tombstones.on.delete": "false",
+  "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+  "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+  "key.converter.schemas.enable": "false",
+  "value.converter.schemas.enable": "false"
+}

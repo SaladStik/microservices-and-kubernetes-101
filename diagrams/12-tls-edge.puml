@@ -1,0 +1,27 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit TLS at the Edge
+
+' TLS lives in exactly one place, the nginx edge. Plain :80 is
+' only there to bounce you up to :443. Internal services speak plain HTTP on
+' the trusted network. They never deal with certificates.
+
+actor Browser
+
+rectangle "nginx (edge)" as nginx {
+  component ":80\nHTTP" as p80
+  component ":443\nHTTPS (TLS)" as p443
+}
+
+component "internal services\n(ui, auth, gateway, ...)" as internal
+
+Browser --> p80 : http://localhost
+p80 --> Browser : 301 -> https://localhost
+Browser --> p443 : https://localhost\n(self-signed cert)
+
+p443 --> internal : plain HTTP\n(trusted internal network)
+
+note bottom of nginx : TLS terminates here. The cert is mounted, not baked in.
+note right of internal : No certs inside. Plain HTTP on the private network.
+
+@enduml

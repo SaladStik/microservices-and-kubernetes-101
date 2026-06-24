@@ -1,0 +1,26 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: orbit-python-worker
+  namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: img=ghcr.io/your-org/orbit-python-worker
+    argocd-image-updater.argoproj.io/img.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/img.allow-tags: regexp:^[0-9a-f]{7,40}$
+    argocd-image-updater.argoproj.io/img.kustomize.image-name: orbit-python-worker
+    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/git-branch: main
+spec:
+  project: orbit
+  source:
+    repoURL: https://github.com/your-org/orbit-microservices-k8s.git
+    targetRevision: main
+    path: services/python-worker/k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: orbit
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

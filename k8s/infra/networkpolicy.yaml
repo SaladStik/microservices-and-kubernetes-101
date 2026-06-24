@@ -1,0 +1,93 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Default deny ingress, then allow only the paths each service needs.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: orbit
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  # No ingress rules means deny all ingress by default.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-nginx-from-anywhere
+  namespace: orbit
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx
+  policyTypes: [Ingress]
+  ingress:
+    - {} # nginx is the public edge, so allow ingress to it
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-auth-from-nginx
+  namespace: orbit
+spec:
+  podSelector:
+    matchLabels:
+      app: auth
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: nginx
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-from-nginx
+  namespace: orbit
+spec:
+  podSelector:
+    matchLabels:
+      app: node-gateway
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: nginx        # both the /api/jobs command and /ws come through nginx
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-from-auth
+  namespace: orbit
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: auth          # only the auth service stores sessions
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-from-data-clients
+  namespace: orbit
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: node-gateway   # read model and queued writes
+        - podSelector:
+            matchLabels:
+              app: python-worker  # writes results
+        # Debezium Connect pods read the WAL too, add a strimzi.io/cluster rule if locked down

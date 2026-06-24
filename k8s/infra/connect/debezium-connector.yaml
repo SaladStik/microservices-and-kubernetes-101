@@ -1,0 +1,29 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Debezium connector, tails the WAL via orbit_publication and emits CDC for public.jobs.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: orbit-postgres-connector
+  namespace: orbit
+  labels:
+    strimzi.io/cluster: orbit-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    database.hostname: postgres
+    database.port: 5432
+    database.user: orbit
+    database.password: orbit
+    database.dbname: orbit
+    topic.prefix: orbit
+    plugin.name: pgoutput
+    publication.name: orbit_publication
+    publication.autocreate.mode: disabled
+    slot.name: orbit_slot
+    table.include.list: public.jobs
+    tombstones.on.delete: "false"
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: "false"
+    value.converter.schemas.enable: "false"

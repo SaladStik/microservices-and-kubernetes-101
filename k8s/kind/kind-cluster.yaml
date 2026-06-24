@@ -1,0 +1,16 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Multi node kind cluster. Control plane maps host 80 and 443 to the nginx NodePorts.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: orbit
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080 # nginx HTTP NodePort
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 30443 # nginx HTTPS NodePort
+        hostPort: 443
+        protocol: TCP
+  - role: worker
+  - role: worker

@@ -1,0 +1,32 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit CI to GitOps
+
+' Code push and deploy connect through git. CI builds the
+' image. Image Updater writes the new tag back to git. Argo CD does the deploy.
+
+actor Developer
+participant "GitHub Actions\n(build-changed-service)" as ci
+participant "GHCR\nghcr.io/<owner>/orbit-<svc>" as ghcr
+participant "Argo CD\nImage Updater" as updater
+participant "Git repo" as git
+participant "Argo CD\n(sync)" as argo
+participant "Kubernetes\nDeployment" as k8s
+
+Developer -> git : git push (services/**)
+git -> ci : trigger workflow
+ci -> ci : detect CHANGED service\n(path filters)
+ci -> ci : build ONLY that service
+ci -> ghcr : push image\ntag = commit SHA
+
+updater -> ghcr : poll for new SHA tags
+ghcr --> updater : new tag found
+updater -> git : commit new tag\nback into manifests
+
+git -> argo : desired state changed
+argo -> k8s : sync -> rolling update
+k8s --> argo : new pods healthy
+
+note over git : Git is the source of truth. Even the tag bump is a commit. CI never touches the cluster.
+
+@enduml

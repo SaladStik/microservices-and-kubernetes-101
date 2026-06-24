@@ -1,0 +1,18 @@
+{
+  "name": "orbit-node-gateway",
+  "author": "Nicholas Irvine (https://github.com/SaladStik)",
+  "version": "1.0.0",
+  "description": "Event hub: produces job events, consumes CDC events, serves job history, pushes WebSocket updates",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.12.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.0"
+  }
+}

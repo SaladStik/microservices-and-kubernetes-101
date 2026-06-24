@@ -1,0 +1,36 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit GitOps with Argo CD
+
+' Nobody runs `kubectl apply` by hand. Git holds the desired
+' state. Argo CD keeps making the cluster match it.
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+rectangle "Git repo (DESIRED state)" #e9f5ff {
+  artifact "argocd/app-of-apps.yaml\n(orbit-root)" as root
+  artifact "argocd/apps/*\n(child Applications)" as children
+  artifact "k8s/** manifests\n(infra + services)" as manifests
+}
+
+rectangle "Argo CD (controller)" #fff5e9 {
+  component "orbit-root\nApplication" as argoRoot
+  component "child\nApplications" as argoChildren
+}
+
+rectangle "Kubernetes (LIVE state)" #e9ffe9 {
+  node "namespace: orbit" as live
+}
+
+root --> argoRoot : watches
+argoRoot --> argoChildren : app-of-apps\npulls in children
+children --> argoChildren
+argoChildren --> manifests : each child watches a path
+
+argoChildren --> live : SYNC\n(reconcile to match git)
+live --> argoChildren : reports drift
+
+note bottom of argoChildren : selfHeal and prune push drift back. Change git to change the cluster.
+
+@enduml

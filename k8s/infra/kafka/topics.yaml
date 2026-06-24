@@ -1,0 +1,31 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Request topic, managed by the Strimzi Topic Operator. Debezium auto creates the CDC topic.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: job.requests
+  namespace: orbit
+  labels:
+    strimzi.io/cluster: orbit-kafka
+spec:
+  # 12 partitions so the worker can scale out to many parallel consumers
+  partitions: 12
+  replicas: 3
+  config:
+    retention.ms: 604800000   # 7 days
+    min.insync.replicas: 2
+---
+# Dead letter queue for messages the worker could not process, longer retention.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: job.requests.dlq
+  namespace: orbit
+  labels:
+    strimzi.io/cluster: orbit-kafka
+spec:
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000  # 30 days
+    min.insync.replicas: 2

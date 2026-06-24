@@ -1,0 +1,35 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Dead Letter Queue
+
+' When a job cannot be processed it must not be silently dropped
+' or left to block the topic. It goes to a DLQ, where you can inspect it and
+' replay it later, for example once a dependency the worker needs is back up.
+
+skinparam shadowing false
+
+queue "job.requests" as reqs
+participant "python-worker" as worker
+database "Postgres" as pg
+queue "job.requests.dlq\n(dead-letter)" as dlq
+
+reqs -> worker : consume { jobId, payload, owner }
+
+alt success
+  worker -> pg : UPDATE row -> 'completed'
+else failure (bad message, or a dependency down)
+  worker -> pg : UPDATE row -> 'failed' (best effort)
+  worker -> dlq : produce { original, reason, error }
+end
+
+note over worker : Retry transient errors first. Send to the DLQ once retries are exhausted.
+
+note over dlq
+  Nothing is lost and the topic is not blocked.
+  Transient when a dependency was down, so replay when it is back.
+  Poison when permanently bad, so fix it then replay. Alert on depth.
+end note
+
+dlq --> reqs : replay (re-publish) when healthy
+
+@enduml

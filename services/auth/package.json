@@ -1,0 +1,16 @@
+{
+  "name": "orbit-auth",
+  "author": "Nicholas Irvine (https://github.com/SaladStik)",
+  "version": "1.0.0",
+  "description": "Backend-for-Frontend: the auth authority (Redis-backed sessions, the nginx auth_request verifier)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1"
+  }
+}

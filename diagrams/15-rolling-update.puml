@@ -1,0 +1,32 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Zero Downtime Rollout
+
+' Argo CD applies the new image. Kubernetes brings up the new pod, waits for it to
+' be healthy, then kills the old one. The old pod serves the whole time.
+
+actor Users
+participant "Argo CD" as argo
+participant "Deployment\n(maxSurge 1, maxUnavailable 0)" as deploy
+participant "old pod v1" as v1
+participant "new pod v2" as v2
+
+Users -> v1 : serving traffic
+
+argo -> deploy : apply new image tag
+deploy -> v2 : start new pod
+note right of v2 : v1 still serves while v2 starts
+
+deploy -> v2 : wait for the readiness probe to pass
+v2 --> deploy : ready
+
+deploy -> Users : send new traffic to v2
+deploy -> v1 : terminate old pod
+Users -> v2 : serving traffic
+
+note over v1, v2
+  the old pod is killed only after the new one is healthy,
+  so there is no downtime
+end note
+
+@enduml

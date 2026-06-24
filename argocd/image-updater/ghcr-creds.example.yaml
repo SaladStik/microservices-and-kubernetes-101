@@ -1,0 +1,11 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# GHCR pull and tag read secret, needed only for private packages. See docs/08-cicd-and-image-updater.md.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ghcr-creds
+  namespace: orbit
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {"auths":{"ghcr.io":{"username":"your-github-username","password":"ghp_PAT_with_read_packages","auth":"BASE64_OF_username:PAT"}}}

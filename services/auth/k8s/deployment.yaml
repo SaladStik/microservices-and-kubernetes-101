@@ -1,0 +1,45 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: orbit
+  labels:
+    app: auth
+spec:
+  replicas: 1
+  # zero downtime rollout. start the new pod, wait for it healthy, then kill the old
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+        - name: auth
+          image: orbit-auth # kustomization overrides this to ghcr.io/<owner>/orbit-auth
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: ORBIT_COOKIE_SECURE
+              value: "true" # the edge serves HTTPS, so the session cookie is Secure
+          envFrom:
+            - secretRef:
+                name: auth-secret
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 10

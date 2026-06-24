@@ -1,0 +1,35 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ui
+  namespace: orbit
+  labels:
+    app: ui
+spec:
+  replicas: 1
+  # zero downtime rollout. start the new pod, wait for it healthy, then kill the old
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: ui
+  template:
+    metadata:
+      labels:
+        app: ui
+    spec:
+      containers:
+        - name: ui
+          image: orbit-ui # kustomization overrides this to ghcr.io/<owner>/orbit-ui
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10

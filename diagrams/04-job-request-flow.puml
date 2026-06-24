@@ -1,0 +1,34 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Submitting a Job
+
+' A job is a command, not an auth question. nginx authenticates
+' it at the edge, then proxies it straight to the node-gateway, the producer.
+' The auth service is bypassed. The gateway records queued, publishes, and returns 202.
+
+actor "UI (browser)" as ui
+participant "nginx" as nginx
+participant "auth\n(auth only)" as auth
+participant "node-gateway\nPOST /jobs" as gw
+database "Postgres\npublic.jobs" as pg
+queue "Kafka topic\njob.requests" as kafka
+
+ui -> nginx : POST /api/jobs { payload }\n(cookie orbit_token)
+nginx -> nginx : auth_request OK (see 03)\nsets X-Auth-User
+
+note over auth : Not in this path. Commands go straight to the gateway.
+
+nginx -> gw : proxy POST /jobs\n(+ trusted X-Auth-User)
+
+gw -> gw : jobId = uuid()\nowner = X-Auth-User
+gw -> pg : INSERT (id, payload, owner, 'queued')
+note right of pg : Write the row, then publish. The row is durable before the event.
+gw -> kafka : produce { jobId, payload, owner }\nkey = jobId
+note right of kafka : The event waits on the queue. No worker is called directly.
+
+gw --> nginx : 202 { jobId, status: "queued" }
+nginx --> ui : 202 { jobId, status: "queued" }
+
+note over ui : The UI holds the jobId. The result arrives later via CDC. See 05.
+
+@enduml

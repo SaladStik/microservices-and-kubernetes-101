@@ -1,0 +1,3 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+confluent-kafka==2.5.3
+psycopg[binary]==3.2.3

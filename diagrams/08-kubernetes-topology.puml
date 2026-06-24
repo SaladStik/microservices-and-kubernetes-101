@@ -1,0 +1,43 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Kubernetes Topology
+
+' How the same services map onto Kubernetes. Only nginx is
+' published, through a NodePort that kind maps to the host.
+
+skinparam shadowing false
+
+actor "Your laptop\nhttps://localhost" as host
+
+node "kind cluster (3 nodes)" {
+  frame "namespace: orbit" {
+    component "nginx\n(Deployment)\nNodePort 30080/30443" as nginx
+    component "ui\n(Deployment)" as ui
+    component "auth\n(Deployment)" as auth
+    component "node-gateway\n(Deployment)" as gw
+    component "python-worker\n(Deployment)" as worker
+    component "Debezium\n(KafkaConnect)" as dbz
+
+    component "redis\n(Deployment)" as redis
+    node "orbit-kafka\n(Strimzi, 3 pods)" as kafka
+    database "postgres\n(StatefulSet + PVC)" as pg
+  }
+}
+
+host --> nginx : host 80/443 -> NodePort 30080/30443
+
+nginx --> ui
+nginx --> auth
+nginx --> gw : /api/jobs (command) + /ws
+auth --> redis : sessions
+gw --> kafka
+gw --> pg : 'queued' + history (read model)
+worker --> kafka
+worker --> pg
+pg --> dbz
+dbz --> kafka
+
+note bottom of nginx : The only exposed Service. NodePorts 30080/30443 map to host 80/443 and TLS lives here.
+note bottom of kafka : Strimzi three pod KRaft quorum. See 07.
+
+@enduml

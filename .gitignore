@@ -1,0 +1,36 @@
+# Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Env and secrets (keep .env.example)
+.env
+.env.*
+!.env.example
+*.local.yaml
+
+# Generated TLS certs
+services/nginx/certs/tls.crt
+services/nginx/certs/tls.key
+
+# Logs
+*.log
+
+# OS and editor junk
+.DS_Store
+Thumbs.db
+*.swp

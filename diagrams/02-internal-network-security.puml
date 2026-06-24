@@ -1,0 +1,45 @@
+@startuml
+' Author: Nicholas Irvine  GitHub https://github.com/SaladStik  LinkedIn https://www.linkedin.com/in/nicholas-irvine-303ab5284/
+title Orbit Only nginx is Exposed
+
+' There is exactly one door into the system. Every other
+' service lives on a private network and you cannot reach it from outside.
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Browser\n(outside world)" as browser
+
+rectangle "Public surface" #ffe9e9 {
+  component "nginx\n:80 -> :443 (HTTPS)" as nginx
+}
+
+rectangle "Internal network 'orbit'\n(no public ports)" #e9f5ff {
+  component "ui" as ui
+  component "auth" as auth
+  component "node-gateway" as gw
+  component "python-worker" as worker
+  component "Redis" as redis
+  queue "Kafka" as kafka
+  database "Postgres" as pg
+  component "Debezium" as dbz
+}
+
+browser --> nginx : the ONLY way in (HTTPS)
+
+nginx --> ui
+nginx --> auth
+nginx --> gw
+
+auth --> redis
+gw --> kafka
+gw --> pg
+worker --> kafka
+worker --> pg
+pg --> dbz
+dbz --> kafka
+
+note right of nginx : In Compose only nginx maps a port. In k8s NetworkPolicy enforces it.
+note bottom of worker : Nothing internal is published.
+
+@enduml
