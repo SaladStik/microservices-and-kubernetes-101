@@ -20,7 +20,7 @@ The flow in order.
 5. Debezium reads the Postgres write ahead log and publishes a change event to the Kafka topic `orbit.public.jobs`.
 6. The node-gateway consumes that change event and pushes the result to the browser over a WebSocket.
 
-See the bite sized diagrams in [`docs/diagrams/`](docs/diagrams). Each one explains a single hop in this flow.
+See the bite sized diagrams in [`diagrams/`](diagrams). Each one explains a single hop in this flow.
 
 ## Components
 
